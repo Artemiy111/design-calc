@@ -29,8 +29,8 @@ export default withNuxt(
       'import/order': 'off',
       'perfectionist/sort-vue-attributes': 'off',
       'perfectionist/sort-imports': ['error', {
-        type: 'alphabetical',
-        internalPattern: ['~/**', '~~/**'],
+        // type: 'alphabetical',
+        // internalPattern: ['~/**', '~~/**'],
       }],
       'perfectionist/sort-named-imports': [
         'error',
