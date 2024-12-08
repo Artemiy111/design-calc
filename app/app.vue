@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { z } from 'zod'
-import katex from 'katex'
 import type { FormSubmitEvent } from '#ui/types'
 
+import { execute } from '~~/server/shared/computations'
 import {
   detail_purposes,
   detail_type,
@@ -14,13 +13,26 @@ import {
   materials,
   psi_bd_values,
   shaft_rigidities,
+  table_6_5_data,
   type Psi_bd,
+  type Shaft_rigidity,
 } from '~~/server/shared/constants'
-import { execute } from '~~/server/shared/computations'
+import katex from 'katex'
+import { z } from 'zod'
 
 const toast = useToast()
+const material_values = [...new Set(table_6_5_data.map(t => t.material))]
 
-const psi_bd_values_strings = psi_bd_values.map(String) as ['0.2', '0.4', '0.6', '0.8', '1.0', '1.2', '1.4', '1.6']
+const psi_bd_values_strings = psi_bd_values.map(String) as [
+  '0.2',
+  '0.4',
+  '0.6',
+  '0.8',
+  '1.0',
+  '1.2',
+  '1.4',
+  '1.6',
+]
 const schema = z.object({
   u: z.number(),
   gear_location: z.enum(gear_locations),
@@ -45,7 +57,7 @@ const schema = z.object({
     material: z.enum(materials),
     material_brand: z.enum(material_brands),
     heat_type: z.enum(heat_types),
-    load_type: z.enum(load_types)
+    load_type: z.enum(load_types),
   }),
   results: z.object({
     detail_1: z.object({
@@ -62,7 +74,7 @@ const schema = z.object({
     K_Hbeta: z.number().optional(),
     sigma_HP: z.number().optional(),
     d_w1: z.number().optional(),
-  })
+  }),
 })
 type Schema = z.output<typeof schema>
 
@@ -81,8 +93,8 @@ const state = ref<Schema>({
     material: 'сталь',
     material_brand: '45',
     heat_type: 'Улучшение',
-    load_type: "Постоянная",
-    psi_bd: '0.2'
+    load_type: 'Постоянная',
+    psi_bd: '0.2',
   },
   detail_2: {
     detail_type: 'Прямозубое',
@@ -90,31 +102,113 @@ const state = ref<Schema>({
     material: 'сталь',
     material_brand: '45',
     heat_type: 'Улучшение',
-    load_type: "Постоянная",
+    load_type: 'Постоянная',
   },
   results: {
     detail_1: {},
     detail_2: {},
-  }
+  },
 })
 
-const dw_1_formula = katex.renderToString(`d_{w1} = K_d \\ \\sqrt[3]{\\dfrac{T_1 K_{H\\beta} (u \\pm 1)}{u \\psi_{bd} \\sigma^2_{H P}}}`)
+const shaft_rigidity_values = computed(() => {
+  if (
+    state.value.gear_location === 'Симметричное расположение шестерни относительно опор' ||
+    state.value.gear_location === 'Консольное расположение одного из колёс'
+  )
+    return ['<ничего>'] satisfies Shaft_rigidity[]
+  else return ['весьма жёсткий вал', 'менее жёсткий вал'] satisfies Shaft_rigidity[]
+})
+watch(
+  () => state.value.gear_location,
+  () => {
+    state.value.shaft_rigidity = shaft_rigidity_values.value[0]!
+  },
+)
+
+const detail_1_material_brands = computed(() => [
+  ...new Set(
+    table_6_5_data
+      .filter(t => t.material === state.value.detail_1.material)
+      .map(t => t.material_brand),
+  ),
+])
+const detail_1_heat_types = computed(() => [
+  ...new Set(
+    table_6_5_data
+      .filter(
+        t =>
+          t.material === state.value.detail_1.material &&
+          t.material_brand === state.value.detail_1.material_brand,
+      )
+      .map(t => t.heat_type),
+  ),
+])
+watch(
+  () => state.value.detail_1.material,
+  () => {
+    state.value.detail_1.material_brand = detail_1_material_brands.value[0]!
+  },
+)
+watch(
+  () => state.value.detail_1.material_brand,
+  () => {
+    state.value.detail_1.heat_type = detail_1_heat_types.value[0]!
+  },
+)
+const detail_2_material_brands = computed(() => [
+  ...new Set(
+    table_6_5_data
+      .filter(t => t.material === state.value.detail_2.material)
+      .map(t => t.material_brand),
+  ),
+])
+const detail_2_heat_types = computed(() => [
+  ...new Set(
+    table_6_5_data
+      .filter(
+        t =>
+          t.material === state.value.detail_2.material &&
+          t.material_brand === state.value.detail_2.material_brand,
+      )
+      .map(t => t.heat_type),
+  ),
+])
+watch(
+  () => state.value.detail_2.material,
+  () => {
+    state.value.detail_2.material_brand = detail_2_material_brands.value[0]!
+  },
+)
+watch(
+  () => state.value.detail_2.material_brand,
+  () => {
+    state.value.detail_2.heat_type = detail_2_heat_types.value[0]!
+  },
+)
+
+const dw_1_formula = katex.renderToString(
+  `d_{w1} = K_d \\ \\sqrt[3]{\\dfrac{T_1 K_{H\\beta} (u \\pm 1)}{u \\psi_{bd} \\sigma^2_{H P}}}`,
+)
 const K_HL_formula = katex.renderToString(`K_{HL} = \\sqrt[6]{N_{H_0} / N_{HE}}`)
 const sigma_HP_formula = katex.renderToString(`\\sigma_{HP} = \\sigma'_{HP} / K_{HL}`)
-const sigma_HP_result_formula = katex.renderToString(`\\sigma_{HP} = min(\\sigma_{HP_1}, \\sigma_{HP_2})`)
+const sigma_HP_result_formula = katex.renderToString(
+  `\\sigma_{HP} = min(\\sigma_{HP_1}, \\sigma_{HP_2})`,
+)
 
 const onSubmit = (e: FormSubmitEvent<Schema>) => {
   const data = e.data
   console.log(data)
   try {
-    const res = execute({...data, detail_1 : {...data.detail_1, psi_bd: parseFloat(e.data.detail_1.psi_bd) as Psi_bd}}) 
+    const res = execute({
+      ...data,
+      detail_1: { ...data.detail_1, psi_bd: parseFloat(e.data.detail_1.psi_bd) as Psi_bd },
+    })
     console.log(res)
     state.value.results = res
-  } catch(_e) {
+  } catch (_e) {
     const e = _e as Error
-    toast.add({'title': e.message, color: 'error'})
+    toast.add({ title: e.message, color: 'error' })
   }
-
 }
 </script>
 
@@ -126,113 +220,177 @@ const onSubmit = (e: FormSubmitEvent<Schema>) => {
         специальных редукторов
       </h1>
 
-      <UForm 
-      :schema="schema"
-       :state="state" 
-       class="grid grid-cols-[max-content_max-content_max-content] gap-x-16 gap-y-12 mt-8" 
-      @submit="onSubmit"> 
+      <UForm
+        class="grid grid-cols-[max-content_max-content_max-content] gap-x-16 gap-y-12 mt-8"
+        :schema="schema"
+        :state="state"
+        @submit="onSubmit"
+      >
         <section class="flex flex-col w-110 gap-4">
           <h2 class="text-xl font-bold w-full">Параметры Сборочной единицы</h2>
-          <UFormField name="u" label="Номер передачи" hint="u">
-            <UInputNumber class="w-full" :min="1" :max="10" v-model="state.u" />
+          <UFormField hint="u" label="Номер передачи" name="u">
+            <UInputNumber v-model="state.u" class="w-full" :max="10" :min="1" />
           </UFormField>
-          <UFormField name="gear_location" label="Расположение шестерни" hint="gear_location" ">
-            <USelect  class="w-full" v-model="state.gear_location" :items="gear_locations" />
+          <UFormField hint="gear_location" label="Расположение шестерни" name="gear_location">
+            <USelect v-model="state.gear_location" class="w-full" :items="[...gear_locations]" />
           </UFormField>
-          <UFormField name="shaft_rigidity" label="Жёсткость вала" hint="shaft_rigidity" >
-            <USelect class="w-full" v-model="state.shaft_rigidity" :items="shaft_rigidities" />
+          <UFormField hint="shaft_rigidity" label="Жёсткость вала" name="shaft_rigidity">
+            <USelect v-model="state.shaft_rigidity" class="w-full" :items="shaft_rigidity_values" />
           </UFormField>
-          <UFormField name="load_type" label="Тип нагрузки" hint="load_type" >
-            <USelect class="w-full" :items="load_types" v-model="state.load_type" disabled  />
+          <UFormField hint="load_type" label="Тип нагрузки" name="load_type">
+            <USelect v-model="state.load_type" class="w-full" disabled :items="[...load_types]" />
           </UFormField>
-          <UFormField name="T_1" label="Крутящий момент на шестерне" hint="T₁">
-            <UInputNumber class="w-full" :min="1" :max="100000" v-model="state.T_1" />
+          <UFormField hint="T₁" label="Крутящий момент на шестерне" name="T_1">
+            <UInputNumber v-model="state.T_1" class="w-full" :max="100000" :min="1" />
           </UFormField>
-          <UFormField name="n" label="Частота вращения" hint="n">
-            <UInputNumber class="w-full" :min="1" :max="100000" v-model="state.n" />
+          <UFormField hint="n" label="Частота вращения" name="n">
+            <UInputNumber v-model="state.n" class="w-full" :max="100000" :min="1" />
           </UFormField>
-          <UFormField name="t_hours" label="Полное число часов работы передачи за срок службы" hint="t_ч">
-            <UInputNumber class="w-full" :min="100" :max="100000" v-model="state.t_hours" />
+          <UFormField
+            hint="t_ч"
+            label="Полное число часов работы передачи за срок службы"
+            name="t_hours"
+          >
+            <UInputNumber v-model="state.t_hours" class="w-full" :max="100000" :min="100" />
           </UFormField>
-          <UFormField name="material_combination" label="Комбинация материалов зубатых колёс" hint="material_combination" >
-            <USelect class="w-full" :items="material_combinations" v-model="state.material_combination"  />
+          <UFormField
+            hint="material_combination"
+            label="Комбинация материалов зубатых колёс"
+            name="material_combination"
+          >
+            <USelect
+              v-model="state.material_combination"
+              class="w-full"
+              :items="[...material_combinations]"
+            />
           </UFormField>
         </section>
         <section class="flex flex-col w-110 gap-4">
           <h2 class="text-xl font-bold">Параметры шестерни</h2>
-          <UFormField name="detail_1.detail_type" label="Тип зубчатого колеса" hint="detail_type">
-            <UInput class="w-full" v-model="state.detail_1.detail_type" disabled />
+          <UFormField hint="detail_type" label="Тип зубчатого колеса" name="detail_1.detail_type">
+            <UInput v-model="state.detail_1.detail_type" class="w-full" disabled />
           </UFormField>
-          <UFormField name="detail_1.detail_purpose" label="Назначение зубчатого колеса" hint="detail_purpose">
-            <UInput class="w-full" v-model="state.detail_1.detail_purpose" disabled />
+          <UFormField
+            hint="detail_purpose"
+            label="Назначение зубчатого колеса"
+            name="detail_1.detail_purpose"
+          >
+            <UInput v-model="state.detail_1.detail_purpose" class="w-full" disabled />
           </UFormField>
-          <UFormField name="detail_1.material" label="Материал" hint="material">
-            <USelect class="w-full" :items="materials" v-model="state.detail_1.material" />
+          <UFormField hint="material" label="Материал" name="detail_1.material">
+            <USelect v-model="state.detail_1.material" class="w-full" :items="material_values" />
           </UFormField>
-          <UFormField name="detail_1.material_brand" label="Марка материала" hint="material_brand" >
-            <USelect class="w-full" :items="material_brands" v-model="state.detail_1.material_brand" />
+          <UFormField hint="material_brand" label="Марка материала" name="detail_1.material_brand">
+            <USelect
+              v-model="state.detail_1.material_brand"
+              class="w-full"
+              :items="detail_1_material_brands"
+            />
           </UFormField>
-          <UFormField name="detail_1.heat_type" label="Термообработка" hint="heat_type">
-            <USelect class="w-full" :items="heat_types" v-model="state.detail_1.heat_type" />
+          <UFormField hint="heat_type" label="Термообработка" name="detail_1.heat_type">
+            <USelect
+              v-model="state.detail_1.heat_type"
+              class="w-full"
+              :items="detail_1_heat_types"
+            />
           </UFormField>
-          <UFormField name="detail_1.psi_bd" label="Относительная ширина венца" hint="ψ_bd">
-            <USelect class="w-full" :items="psi_bd_values_strings" v-model="state.detail_1.psi_bd" />
+          <UFormField hint="ψ_bd" label="Относительная ширина венца" name="detail_1.psi_bd">
+            <USelect
+              v-model="state.detail_1.psi_bd"
+              class="w-full"
+              :items="psi_bd_values_strings"
+            />
           </UFormField>
-          <UFormField name="results.K_HL" label="Коэффициент долговечности" hint="K_ʜʟ">
+          <UFormField hint="K_ʜʟ" label="Коэффициент долговечности" name="results.K_HL">
             <div class="mb-2" v-html="K_HL_formula" />
-            <UInput variant="soft" class="w-full" v-model="state.results.detail_1.K_HL" disabled />
+            <UInput v-model="state.results.detail_1.K_HL" class="w-full" disabled variant="soft" />
           </UFormField>
-          <UFormField name="results.detail_1.sigma_HP" label="Допускаемое контактное напряжение" hint="σ_ʜᴘ">
+          <UFormField
+            hint="σ_ʜᴘ"
+            label="Допускаемое контактное напряжение"
+            name="results.detail_1.sigma_HP"
+          >
             <div class="mb-2" v-html="sigma_HP_formula" />
-            <UInput variant="soft" class="w-full" v-model="state.results.detail_1.sigma_HP" disabled />
+            <UInput
+              v-model="state.results.detail_1.sigma_HP"
+              class="w-full"
+              disabled
+              variant="soft"
+            />
           </UFormField>
         </section>
         <section class="flex flex-col gap-4">
           <h2 class="text-xl font-bold">Параметры ведомого зубчатого колеса</h2>
-          <UFormField name="detail_1.detail_type" label="Тип зубчатого колеса" hint="detail_type">
-            <UInput class="w-full" v-model="state.detail_1.detail_type" disabled />
+          <UFormField hint="detail_type" label="Тип зубчатого колеса" name="detail_1.detail_type">
+            <UInput v-model="state.detail_1.detail_type" class="w-full" disabled />
           </UFormField>
-          <UFormField name="detail_2.detail_purpose" label="Назначение зубчатого колеса" hint="detail_purpose">
-            <UInput class="w-full" v-model="state.detail_2.detail_purpose" disabled />
+          <UFormField
+            hint="detail_purpose"
+            label="Назначение зубчатого колеса"
+            name="detail_2.detail_purpose"
+          >
+            <UInput v-model="state.detail_2.detail_purpose" class="w-full" disabled />
           </UFormField>
-          <UFormField name="detail_2.material" label="Материал" hint="material">
-            <USelect class="w-full" :items="materials" v-model="state.detail_2.material" />
+          <UFormField hint="material" label="Материал" name="detail_2.material">
+            <USelect v-model="state.detail_2.material" class="w-full" :items="material_values" />
           </UFormField>
-          <UFormField name="detail_2.material_brand" label="Марка материала" hint="material_brand" >
-            <USelect class="w-full" :items="material_brands" v-model="state.detail_2.material_brand" />
+          <UFormField hint="material_brand" label="Марка материала" name="detail_2.material_brand">
+            <USelect
+              v-model="state.detail_2.material_brand"
+              class="w-full"
+              :items="detail_2_material_brands"
+            />
           </UFormField>
-          <UFormField name="detail_2.heat_type" label="Термообработка" hint="heat_type">
-            <USelect class="w-full" :items="heat_types" v-model="state.detail_2.heat_type" />
+          <UFormField hint="heat_type" label="Термообработка" name="detail_2.heat_type">
+            <USelect
+              v-model="state.detail_2.heat_type"
+              class="w-full"
+              :items="detail_2_heat_types"
+            />
           </UFormField>
-          <UFormField name="results.K_HL" label="Коэффициент долговечности" hint="K_ʜʟ">
-            <UInput variant="soft" class="w-full" v-model="state.results.detail_1.K_HL" disabled />
+          <UFormField hint="K_ʜʟ" label="Коэффициент долговечности" name="results.K_HL">
+            <UInput v-model="state.results.detail_1.K_HL" class="w-full" disabled variant="soft" />
           </UFormField>
-          <UFormField name="results.detail_2.sigma_HP" label="Допускаемое контактное напряжение" hint="σ_ʜᴘ">
-            <UInput variant="soft" class="w-full" v-model="state.results.detail_2.sigma_ap_HP" disabled />
+          <UFormField
+            hint="σ_ʜᴘ"
+            label="Допускаемое контактное напряжение"
+            name="results.detail_2.sigma_HP"
+          >
+            <UInput
+              v-model="state.results.detail_2.sigma_ap_HP"
+              class="w-full"
+              disabled
+              variant="soft"
+            />
           </UFormField>
         </section>
         <section class="flex flex-col gap-4">
-          <UButton type="submit">Вычислить</UButton>
+          <UButton class="w-fit" type="submit">Вычислить</UButton>
           <h3 class="text-xl font-bold">Результаты</h3>
-          <UFormField name="results.K_d" label="Вспомогательный коэффициент" hint="К_d"> 
-            <UInput variant="soft" class="w-full" v-model="state.results.K_d" disabled />
+          <UFormField hint="К_d" label="Вспомогательный коэффициент" name="results.K_d">
+            <UInput v-model="state.results.K_d" class="w-full" disabled variant="soft" />
           </UFormField>
-          <UFormField name="results.K_Hbeta" label="Коэффициент, учитывающий распределение нагрузки по ширине венца при контакте" hint="К_ʜᵦ"> 
-            <UInput variant="soft" class="w-full" v-model="state.results.K_Hbeta" disabled />
+          <UFormField
+            hint="К_ʜᵦ"
+            label="Коэффициент, учитывающий распределение нагрузки по ширине венца при контакте"
+            name="results.K_Hbeta"
+          >
+            <UInput v-model="state.results.K_Hbeta" class="w-full" disabled variant="soft" />
           </UFormField>
-          <UFormField name="results.sigma_HP" label="Допускаемое контактное напряжение" hint="σ_ʜᴘ">
+          <UFormField hint="σ_ʜᴘ" label="Допускаемое контактное напряжение" name="results.sigma_HP">
             <div class="mb-2" v-html="sigma_HP_result_formula" />
-            <UInput variant="soft" class="w-full" v-model="state.results.sigma_HP" disabled />
+            <UInput v-model="state.results.sigma_HP" class="w-full" disabled variant="soft" />
           </UFormField>
-          <UFormField name="results.d_w1" label="Диаметр шестерни" hint="d_w1">
-            <div v-html="dw_1_formula" class="mt-2 mb-2" />
-            <UInput variant="soft" class="w-full" v-model="state.results.d_w1"  disabled />
+          <UFormField hint="d_w1" label="Диаметр шестерни" name="results.d_w1">
+            <div class="mt-2 mb-2" v-html="dw_1_formula" />
+            <UInput v-model="state.results.d_w1" class="w-full" disabled variant="soft" />
           </UFormField>
         </section>
       </UForm>
     </main>
   </UApp>
 </template>
+
 <style scoped>
 :global(.katex-html) {
   display: none;
