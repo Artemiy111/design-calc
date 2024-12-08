@@ -1,6 +1,8 @@
 import { blob, int, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { assembly_name, assembly_purpose, detail_name, detail_purposes, detail_type, gear_locations, heat_types, load_kinds, load_types, material_brands, material_combinations, materials, Psi_bd, shaft_rigidities, subassembly_name, subassembly_type } from '../shared/constants'
+import type { Psi_bd } from '../shared/constants'
+
+import { assembly_name, assembly_purpose, detail_name, detail_purposes, detail_type, gear_locations, heat_types, load_kinds, load_types, material_brands, material_combinations, materials, shaft_rigidities, subassembly_name, subassembly_type, table_6_5_data } from '../shared/constants'
 
 export const assemblies = sqliteTable('assemblies', {
   id: int('assembly_id').primaryKey(),
@@ -68,14 +70,17 @@ export const table_6_4 = sqliteTable('table_6_4', {
   pk: primaryKey({ columns: [t.detail_type, t.material_combination] })
 }))
 
+export type Table_6_4_new = Omit<typeof table_6_4.$inferSelect, 'id'>
 
 export const table_6_5 = sqliteTable('table_6_5', {
   material: text('material', { enum: materials }).notNull(),
   material_brand: text('material_brand', { enum: material_brands }).notNull(),
-  heat_type: text('heat_type', { enum: heat_types }),
+  heat_type: text('heat_type', { enum: heat_types }).notNull(),
   HB: int('HB').notNull(),
   sigma_ap_HP: real(`σ'_ʜᴘ`).notNull(),
-  N_H_0: real('N_ʜ₀').notNull(),
+  N_H_0: real('N_ʜ₀'),
 }, (t) => ({
   pk: primaryKey({ columns: [t.material, t.material_brand, t.heat_type] })
 }))
+
+export type Table_6_5_new = Omit<typeof table_6_5.$inferSelect, 'id'>

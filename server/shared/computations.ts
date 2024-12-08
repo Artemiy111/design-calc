@@ -1,10 +1,10 @@
-import { material_with_brand_data, type Detail_type, type Gear_location, type Heat_type, type Load_kind, type Material, type Material_brand, type Material_combination, type Psi_bd, type Shaft_rigidity, Detail_purpose, Load_type } from './constants'
+import { table_6_5_data, type Detail_purpose, type Detail_type, type Gear_location, type Heat_type, type Load_type, type Material, type Material_brand, type Material_combination, type Psi_bd, type Shaft_rigidity } from './constants'
 
 export function get_K_Hbeta_from_table_6_3(
   data: {
     psi_bd: Psi_bd,
     gear_location: Gear_location,
-    shaft_rigidity: Shaft_rigidity | null,
+    shaft_rigidity: Shaft_rigidity,
     material_combination: Material_combination,
     HB: number
   }) {
@@ -36,7 +36,10 @@ export function get_K_Hbeta_from_table_6_3(
         case 'менее жёсткий вал': {
           return HB > 350 ? more350_3[index] : less350_3[index]
         }
+        case '<ничего>': throw new Error('Неправильно выбрано жёсткость вала')
       }
+      shaft_rigidity satisfies never
+      break
     }
     case 'Консольное расположение одного из колёс': {
       return HB > 350 ? more350_4[index] : less350_4[index]
@@ -133,17 +136,17 @@ export function get_data_from_table_6_5(data: {
   material_brand: Material_brand,
   heat_type: Heat_type
   // load_kind: Load_kind
-}): {
-  HB: number,
-  sigma_ap_HP: number,
-  N_H_0: number
-} {
-  return material_with_brand_data[data.material][data.material_brand][data.heat_type]
+}) {
+  const res = table_6_5_data.find(t => t.material === data.material && t.material_brand === data.material_brand && t.heat_type === data.heat_type)
+  if (res === undefined) throw new Error('Не найдено значение для материала, марка и термообработки')
+  const { N_H_0 } = res
+  if (N_H_0 === null) throw new Error('Не значения N_H_0')
+  return { ...res, N_H_0 }
 }
 
 export function execute(data: {
   material_combination: Material_combination,
-  shaft_rigidity: Shaft_rigidity | null,
+  shaft_rigidity: Shaft_rigidity,
   t_hours: number,
   n: number,
   T_1: number,
@@ -168,6 +171,9 @@ export function execute(data: {
   }
 }) {
   const { T_1, u, detail_1, detail_2 } = data
+  if (data.material_combination !== `${detail_1.material} - ${detail_2.material}`)
+    throw new Error('Неправильно выбраны материалы деталей')
+
   const K_Hbeta = get_K_Hbeta_from_table_6_3({ ...data, HB: 349, psi_bd: detail_1.psi_bd })
   if (K_Hbeta === null) throw new Error('Неправильно выбрано K_Hbeta')
 
