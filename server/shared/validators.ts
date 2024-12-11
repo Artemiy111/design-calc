@@ -26,7 +26,6 @@ export const schema = z.object({
     material: z.enum(materials),
     material_brand: z.enum(material_brands),
     heat_type: z.enum(heat_types),
-    load_type: z.enum(load_types),
     psi_bd: z.enum(psi_bd_values_strings),
     T: z.number(),
     gear_location: z.enum(gear_locations),
@@ -37,12 +36,12 @@ export const schema = z.object({
     material: z.enum(materials),
     material_brand: z.enum(material_brands),
     heat_type: z.enum(heat_types),
-    load_type: z.enum(load_types),
   }),
   results: z.object({
     detail_1: z.object({
       HB: z.number().optional(),
       N_H_0: z.number().optional(),
+      N_Sum: z.number().optional(),
       N_HE: z.number().optional(),
       K_HL: z.number().optional(),
       sigma_ap_HP: z.number().optional(),
@@ -52,8 +51,9 @@ export const schema = z.object({
     detail_2: z.object({
       HB: z.number().optional(),
       N_H_0: z.number().optional(),
-      K_HL: z.number().optional(),
+      N_Sum: z.number().optional(),
       N_HE: z.number().optional(),
+      K_HL: z.number().optional(),
       sigma_ap_HP: z.number().optional(),
       sigma_HP: z.number().optional(),
     }),

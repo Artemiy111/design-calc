@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '#ui/types'
+import type { H3Error } from 'h3'
 
 import {
   gear_locations,
@@ -27,7 +28,6 @@ const state = ref<Schema>({
     material: 'сталь',
     material_brand: '45',
     heat_type: 'Улучшение',
-    load_type: 'Постоянная',
     psi_bd: '0.2',
     gear_location: 'Симметричное расположение шестерни относительно опор',
     T: 100,
@@ -38,7 +38,6 @@ const state = ref<Schema>({
     material: 'сталь',
     material_brand: '45',
     heat_type: 'Улучшение',
-    load_type: 'Постоянная',
   },
   results: {
     detail_1: {},
@@ -136,41 +135,30 @@ const onSubmit = async (e: FormSubmitEvent<Schema>) => {
     const res = await $fetch('/api/compute', { method: 'POST', body: e.data })
     state.value.results = res
   } catch (_e) {
-    const e = _e as Error
-    toast.add({ title: e.message, color: 'error' })
+    const e = _e as H3Error
+    toast.add({ title: (e.data as { statusMessage: string }).statusMessage, color: 'error' })
   }
 }
 </script>
 
 <template>
   <UApp>
-    <main class="container mx-auto mt-8">
+    <main class="container mx-auto my-16">
       <h1 class="text-2xl font-bold">
         Проектировочный расчет цилиндрической передачи с прямым зубом (ЦПсПз) для коробок передач и
         специальных редукторов
       </h1>
 
       <UForm
-        class="grid grid-cols-[max-content_max-content_max-content] gap-x-16 gap-y-12 mt-8"
+        class="grid grid-cols-[1fr_1fr_1fr] gap-x-12 gap-y-12 mt-8"
         :schema="schema"
         :state="state"
         @submit="onSubmit"
       >
-        <section class="flex flex-col w-110 gap-4">
+        <section class="flex flex-col gap-4">
           <h2 class="text-xl font-bold w-full">Параметры Сборочной единицы</h2>
           <UFormField hint="u" label="Передаточное число" name="u">
             <UInputNumber v-model="state.u" class="w-full" :max="10" :min="1" />
-          </UFormField>
-          <UFormField
-            hint="gear_location"
-            label="Расположение шестерни"
-            name="detail_1.gear_location"
-          >
-            <USelect
-              v-model="state.detail_1.gear_location"
-              class="w-full"
-              :items="[...gear_locations]"
-            />
           </UFormField>
           <UFormField hint="shaft_rigidity" label="Жёсткость вала" name="shaft_rigidity">
             <USelect v-model="state.shaft_rigidity" class="w-full" :items="shaft_rigidity_values" />
@@ -178,9 +166,7 @@ const onSubmit = async (e: FormSubmitEvent<Schema>) => {
           <UFormField hint="load_type" label="Тип нагрузки" name="load_type">
             <USelect v-model="state.load_type" class="w-full" disabled :items="[...load_types]" />
           </UFormField>
-          <UFormField hint="T₁" label="Крутящий момент на шестерне" name="T_1">
-            <UInputNumber v-model="state.detail_1.T" class="w-full" :max="100000" :min="1" />
-          </UFormField>
+
           <UFormField hint="n" label="Частота вращения" name="n">
             <UInputNumber v-model="state.n" class="w-full" :max="100000" :min="1" />
           </UFormField>
@@ -203,7 +189,7 @@ const onSubmit = async (e: FormSubmitEvent<Schema>) => {
             />
           </UFormField>
         </section>
-        <section class="flex flex-col w-110 gap-4">
+        <section class="flex flex-col gap-4">
           <h2 class="text-xl font-bold">Параметры шестерни</h2>
           <UFormField hint="detail_type" label="Тип зубчатого колеса" name="detail_1.detail_type">
             <UInput v-model="state.detail_1.detail_type" class="w-full" disabled />
@@ -232,31 +218,25 @@ const onSubmit = async (e: FormSubmitEvent<Schema>) => {
               :items="detail_1_heat_types"
             />
           </UFormField>
+          <UFormField hint="T₁" label="Крутящий момент на шестерне" name="T_1">
+            <UInputNumber v-model="state.detail_1.T" class="w-full" :max="100000" :min="1" />
+          </UFormField>
+          <UFormField
+            hint="gear_location"
+            label="Расположение шестерни"
+            name="detail_1.gear_location"
+          >
+            <USelect
+              v-model="state.detail_1.gear_location"
+              class="w-full"
+              :items="[...gear_locations]"
+            />
+          </UFormField>
           <UFormField hint="ψ_bd" label="Относительная ширина венца" name="detail_1.psi_bd">
             <USelect
               v-model="state.detail_1.psi_bd"
               class="w-full"
               :items="psi_bd_values_strings"
-            />
-          </UFormField>
-          <UFormField hint="HB" label="Твердость поверхности зубьев" name="results.detail_1.HB">
-            <UInput v-model="state.results.detail_1.HB" class="w-full" disabled variant="soft" />
-          </UFormField>
-          <UFormField hint="K_ʜʟ" label="Коэффициент долговечности" name="results.K_HL">
-            <div class="mb-2" v-html="K_HL_formula" />
-            <UInput v-model="state.results.detail_1.K_HL" class="w-full" disabled variant="soft" />
-          </UFormField>
-          <UFormField
-            hint="σ_ʜᴘ"
-            label="Допускаемое контактное напряжение"
-            name="results.detail_1.sigma_HP"
-          >
-            <div class="mb-2" v-html="sigma_HP_formula" />
-            <UInput
-              v-model="state.results.detail_1.sigma_HP"
-              class="w-full"
-              disabled
-              variant="soft"
             />
           </UFormField>
         </section>
@@ -289,25 +269,13 @@ const onSubmit = async (e: FormSubmitEvent<Schema>) => {
               :items="detail_2_heat_types"
             />
           </UFormField>
-          <UFormField hint="K_ʜʟ" label="Коэффициент долговечности" name="results.K_HL">
-            <UInput v-model="state.results.detail_1.K_HL" class="w-full" disabled variant="soft" />
-          </UFormField>
-          <UFormField
-            hint="σ_ʜᴘ"
-            label="Допускаемое контактное напряжение"
-            name="results.detail_2.sigma_HP"
-          >
-            <UInput
-              v-model="state.results.detail_2.sigma_ap_HP"
-              class="w-full"
-              disabled
-              variant="soft"
-            />
-          </UFormField>
         </section>
+
+        <section class="col-span-3 justify-self-center">
+          <UButton type="submit">Вычислить</UButton>
+        </section>
+
         <section class="flex flex-col gap-4">
-          <UButton class="w-fit" type="submit">Вычислить</UButton>
-          <h3 class="text-xl font-bold">Результаты</h3>
           <UFormField hint="К_d" label="Вспомогательный коэффициент" name="results.K_d">
             <UInput v-model="state.results.K_d" class="w-full" disabled variant="soft" />
           </UFormField>
@@ -322,9 +290,109 @@ const onSubmit = async (e: FormSubmitEvent<Schema>) => {
             <div class="mb-2" v-html="sigma_HP_result_formula" />
             <UInput v-model="state.results.sigma_HP" class="w-full" disabled variant="soft" />
           </UFormField>
+        </section>
+        <section class="flex flex-col gap-4">
+          <UFormField hint="HB" label="Твердость поверхности зубьев" name="results.detail_1.HB">
+            <UInput v-model="state.results.detail_1.HB" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="N_ʜ₀"
+            label="Базовое число циклов перемены напряжений, соответствующее длительному пределу выносливости"
+            name="results.detail_1.N_H_0"
+          >
+            <UInput v-model="state.results.detail_1.HB" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="N_Σ"
+            label="Суммарное число циклов нагружения"
+            name="results.detail_1.N_Sum"
+          >
+            <UInput v-model="state.results.detail_1.N_Sum" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="N_ʜᴇ"
+            label="Эквивалентное число циклов перемены напряжений"
+            name="results.detail_1.N_HE"
+          >
+            <UInput v-model="state.results.detail_1.HB" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField hint="K_ʜʟ" label="Коэффициент долговечности" name="results.detail_1.K_HL">
+            <div class="mb-2" v-html="K_HL_formula" />
+            <UInput v-model="state.results.detail_1.K_HL" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="σ'_ʜᴘ"
+            label="Допускаемое контактное напряжение, соответствующее базовому числу циклов перемены напряжений"
+            name="results.detail_1.sigma_ap_HP"
+          >
+            <UInput v-model="state.results.detail_1.K_HL" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="σ_ʜᴘ"
+            label="Допускаемое контактное напряжение"
+            name="results.detail_1.sigma_HP"
+          >
+            <div class="mb-2" v-html="sigma_HP_formula" />
+            <UInput
+              v-model="state.results.detail_1.sigma_HP"
+              class="w-full"
+              disabled
+              variant="soft"
+            />
+          </UFormField>
           <UFormField hint="d_w1" label="Диаметр шестерни" name="results.detail_1.d_w1">
             <div class="mt-2 mb-2" v-html="dw_1_formula" />
             <UInput v-model="state.results.detail_1.d_w1" class="w-full" disabled variant="soft" />
+          </UFormField>
+        </section>
+        <section class="flex flex-col gap-4">
+          <UFormField hint="HB" label="Твердость поверхности зубьев" name="results.detail_2.HB">
+            <UInput v-model="state.results.detail_2.HB" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="N_ʜ₀"
+            label="Базовое число циклов перемены напряжений, соответствующее длительному пределу выносливости"
+            name="results.detail_2.N_H_0"
+          >
+            <UInput v-model="state.results.detail_2.HB" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="N_Σ"
+            label="Суммарное число циклов нагружения"
+            name="results.detail_2.N_Sum"
+          >
+            <UInput v-model="state.results.detail_2.N_Sum" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="N_ʜᴇ"
+            label="Эквивалентное число циклов перемены напряжений"
+            name="results.detail_2.N_HE"
+          >
+            <UInput v-model="state.results.detail_2.HB" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField hint="K_ʜʟ" label="Коэффициент долговечности" name="results.detail_2.K_HL">
+            <div class="mb-2" v-html="K_HL_formula" />
+            <UInput v-model="state.results.detail_2.K_HL" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="σ'_ʜᴘ"
+            label="Допускаемое контактное напряжение, соответствующее базовому числу циклов перемены напряжений"
+            name="results.detail_2.sigma_ap_HP"
+          >
+            <UInput v-model="state.results.detail_2.K_HL" class="w-full" disabled variant="soft" />
+          </UFormField>
+          <UFormField
+            hint="σ_ʜᴘ"
+            label="Допускаемое контактное напряжение"
+            name="results.detail_2.sigma_HP"
+          >
+            <div class="mb-2" v-html="sigma_HP_formula" />
+            <UInput
+              v-model="state.results.detail_2.sigma_ap_HP"
+              class="w-full"
+              disabled
+              variant="soft"
+            />
           </UFormField>
         </section>
       </UForm>

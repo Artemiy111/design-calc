@@ -72,18 +72,18 @@ export function get_K_d_from_table_6_4(
 export function find_sigma_HP_of_detail(data: {
   t_hours: number,
   n: number,
+  load_type: Load_type,
   detail: {
     detail_purpose: Detail_purpose,
     material: Material,
     material_brand: Material_brand,
     heat_type: Heat_type
-    load_type: Load_type,
   }
 }) {
-  const { t_hours, n, detail } = data
+  const { t_hours, n, detail, load_type } = data
   const { sigma_ap_HP, N_H_0, HB } = get_data_from_table_6_5(detail)
 
-  const { N_HE, N_Sum, K_HL } = find_K_HL({ t_hours, n, N_H_0, ...detail })
+  const { N_HE, N_Sum, K_HL } = find_K_HL({ t_hours, n, N_H_0, load_type, ...detail })
 
   const sigma_HP = sigma_ap_HP / K_HL
 
@@ -153,13 +153,13 @@ export function execute(data: {
   t_hours: number,
   n: number,
   u: number
+  load_type: Load_type
   detail_1: {
     detail_type: Detail_type,
     detail_purpose: Extract<Detail_purpose, 'Ведущее'>
     material: Material,
     material_brand: Material_brand,
     heat_type: Heat_type,
-    load_type: Load_type
     psi_bd: Psi_bd,
     T: number,
     gear_location: Gear_location,
@@ -170,7 +170,6 @@ export function execute(data: {
     material: Material,
     material_brand: Material_brand,
     heat_type: Heat_type,
-    load_type: Load_type
   }
 }) {
   const { u, detail_1, detail_2 } = data

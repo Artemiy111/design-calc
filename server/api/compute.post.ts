@@ -1,3 +1,5 @@
+import type { H3Error } from 'h3'
+
 import type { Psi_bd } from './../shared/constants'
 
 import { db } from '../db'
@@ -15,8 +17,7 @@ export default defineEventHandler(async (event) => {
 
   } catch (_e) {
     const e = _e as Error
-    console.error(e)
-    throw createError({ statusCode: 400, message: e.message })
+    throw createError({ statusCode: 400, statusMessage: e.message })
   }
 
   console.log('computed')
