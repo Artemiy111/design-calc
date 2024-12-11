@@ -1,89 +1,23 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '#ui/types'
 
-import { execute } from '~~/server/shared/computations'
 import {
-  detail_purposes,
-  detail_type,
   gear_locations,
-  heat_types,
   load_types,
-  material_brands,
   material_combinations,
-  materials,
-  psi_bd_values,
-  shaft_rigidities,
   table_6_5_data,
-  type Psi_bd,
   type Shaft_rigidity,
 } from '~~/server/shared/constants'
+import { psi_bd_values_strings, schema, type Schema } from '~~/server/shared/validators'
 import katex from 'katex'
-import { z } from 'zod'
 
 const toast = useToast()
 const material_values = [...new Set(table_6_5_data.map(t => t.material))]
 
-const psi_bd_values_strings = psi_bd_values.map(String) as [
-  '0.2',
-  '0.4',
-  '0.6',
-  '0.8',
-  '1.0',
-  '1.2',
-  '1.4',
-  '1.6',
-]
-const schema = z.object({
-  u: z.number(),
-  gear_location: z.enum(gear_locations),
-  shaft_rigidity: z.enum(shaft_rigidities),
-  load_type: z.enum([load_types[0]]),
-  T_1: z.number(),
-  n: z.number(),
-  t_hours: z.number(),
-  material_combination: z.enum(material_combinations),
-  detail_1: z.object({
-    detail_type: z.enum([detail_type]),
-    detail_purpose: z.enum([detail_purposes[0]]),
-    material: z.enum(materials),
-    material_brand: z.enum(material_brands),
-    heat_type: z.enum(heat_types),
-    load_type: z.enum(load_types),
-    psi_bd: z.enum(psi_bd_values_strings),
-  }),
-  detail_2: z.object({
-    detail_type: z.enum([detail_type]),
-    detail_purpose: z.enum([detail_purposes[1]]),
-    material: z.enum(materials),
-    material_brand: z.enum(material_brands),
-    heat_type: z.enum(heat_types),
-    load_type: z.enum(load_types),
-  }),
-  results: z.object({
-    detail_1: z.object({
-      K_HL: z.number().optional(),
-      sigma_ap_HP: z.number().optional(),
-      sigma_HP: z.number().optional(),
-    }),
-    detail_2: z.object({
-      K_HL: z.number().optional(),
-      sigma_ap_HP: z.number().optional(),
-      sigma_HP: z.number().optional(),
-    }),
-    K_d: z.number().optional(),
-    K_Hbeta: z.number().optional(),
-    sigma_HP: z.number().optional(),
-    d_w1: z.number().optional(),
-  }),
-})
-type Schema = z.output<typeof schema>
-
 const state = ref<Schema>({
   u: 1,
-  gear_location: 'Симметричное расположение шестерни относительно опор',
   shaft_rigidity: '<ничего>',
   load_type: 'Постоянная',
-  T_1: 100,
   n: 100,
   t_hours: 1000,
   material_combination: 'сталь - сталь',
@@ -95,6 +29,8 @@ const state = ref<Schema>({
     heat_type: 'Улучшение',
     load_type: 'Постоянная',
     psi_bd: '0.2',
+    gear_location: 'Симметричное расположение шестерни относительно опор',
+    T: 100,
   },
   detail_2: {
     detail_type: 'Прямозубое',
@@ -112,14 +48,14 @@ const state = ref<Schema>({
 
 const shaft_rigidity_values = computed(() => {
   if (
-    state.value.gear_location === 'Симметричное расположение шестерни относительно опор' ||
-    state.value.gear_location === 'Консольное расположение одного из колёс'
+    state.value.detail_1.gear_location === 'Симметричное расположение шестерни относительно опор' ||
+    state.value.detail_1.gear_location === 'Консольное расположение одного из колёс'
   )
     return ['<ничего>'] satisfies Shaft_rigidity[]
   else return ['весьма жёсткий вал', 'менее жёсткий вал'] satisfies Shaft_rigidity[]
 })
 watch(
-  () => state.value.gear_location,
+  () => state.value.detail_1.gear_location,
   () => {
     state.value.shaft_rigidity = shaft_rigidity_values.value[0]!
   },
@@ -195,15 +131,9 @@ const sigma_HP_result_formula = katex.renderToString(
   `\\sigma_{HP} = min(\\sigma_{HP_1}, \\sigma_{HP_2})`,
 )
 
-const onSubmit = (e: FormSubmitEvent<Schema>) => {
-  const data = e.data
-  console.log(data)
+const onSubmit = async (e: FormSubmitEvent<Schema>) => {
   try {
-    const res = execute({
-      ...data,
-      detail_1: { ...data.detail_1, psi_bd: parseFloat(e.data.detail_1.psi_bd) as Psi_bd },
-    })
-    console.log(res)
+    const res = await $fetch('/api/compute', { method: 'POST', body: e.data })
     state.value.results = res
   } catch (_e) {
     const e = _e as Error
@@ -228,11 +158,19 @@ const onSubmit = (e: FormSubmitEvent<Schema>) => {
       >
         <section class="flex flex-col w-110 gap-4">
           <h2 class="text-xl font-bold w-full">Параметры Сборочной единицы</h2>
-          <UFormField hint="u" label="Номер передачи" name="u">
+          <UFormField hint="u" label="Передаточное число" name="u">
             <UInputNumber v-model="state.u" class="w-full" :max="10" :min="1" />
           </UFormField>
-          <UFormField hint="gear_location" label="Расположение шестерни" name="gear_location">
-            <USelect v-model="state.gear_location" class="w-full" :items="[...gear_locations]" />
+          <UFormField
+            hint="gear_location"
+            label="Расположение шестерни"
+            name="detail_1.gear_location"
+          >
+            <USelect
+              v-model="state.detail_1.gear_location"
+              class="w-full"
+              :items="[...gear_locations]"
+            />
           </UFormField>
           <UFormField hint="shaft_rigidity" label="Жёсткость вала" name="shaft_rigidity">
             <USelect v-model="state.shaft_rigidity" class="w-full" :items="shaft_rigidity_values" />
@@ -241,7 +179,7 @@ const onSubmit = (e: FormSubmitEvent<Schema>) => {
             <USelect v-model="state.load_type" class="w-full" disabled :items="[...load_types]" />
           </UFormField>
           <UFormField hint="T₁" label="Крутящий момент на шестерне" name="T_1">
-            <UInputNumber v-model="state.T_1" class="w-full" :max="100000" :min="1" />
+            <UInputNumber v-model="state.detail_1.T" class="w-full" :max="100000" :min="1" />
           </UFormField>
           <UFormField hint="n" label="Частота вращения" name="n">
             <UInputNumber v-model="state.n" class="w-full" :max="100000" :min="1" />
@@ -300,6 +238,9 @@ const onSubmit = (e: FormSubmitEvent<Schema>) => {
               class="w-full"
               :items="psi_bd_values_strings"
             />
+          </UFormField>
+          <UFormField hint="HB" label="Твердость поверхности зубьев" name="results.detail_1.HB">
+            <UInput v-model="state.results.detail_1.HB" class="w-full" disabled variant="soft" />
           </UFormField>
           <UFormField hint="K_ʜʟ" label="Коэффициент долговечности" name="results.K_HL">
             <div class="mb-2" v-html="K_HL_formula" />
@@ -381,9 +322,9 @@ const onSubmit = (e: FormSubmitEvent<Schema>) => {
             <div class="mb-2" v-html="sigma_HP_result_formula" />
             <UInput v-model="state.results.sigma_HP" class="w-full" disabled variant="soft" />
           </UFormField>
-          <UFormField hint="d_w1" label="Диаметр шестерни" name="results.d_w1">
+          <UFormField hint="d_w1" label="Диаметр шестерни" name="results.detail_1.d_w1">
             <div class="mt-2 mb-2" v-html="dw_1_formula" />
-            <UInput v-model="state.results.d_w1" class="w-full" disabled variant="soft" />
+            <UInput v-model="state.results.detail_1.d_w1" class="w-full" disabled variant="soft" />
           </UFormField>
         </section>
       </UForm>

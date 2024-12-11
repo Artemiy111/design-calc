@@ -3,13 +3,15 @@ import { table_6_5_data, type Detail_purpose, type Detail_type, type Gear_locati
 export function get_K_Hbeta_from_table_6_3(
   data: {
     psi_bd: Psi_bd,
-    gear_location: Gear_location,
     shaft_rigidity: Shaft_rigidity,
     material_combination: Material_combination,
-    HB: number
+    HB: number,
+    detail_1: {
+      gear_location: Gear_location,
+    }
   }) {
 
-  const { psi_bd, gear_location, shaft_rigidity, material_combination, HB } = data
+  const { psi_bd, shaft_rigidity, material_combination, HB, detail_1 } = data
   const more350_1 = [1.00, 1.01, 1.03, 1.06, 1.10, 11.12, 1.15, 1.20]
   const less350_1 = [1.00, 1.00, 1.01, 1.03, 1.04, 1.05, 1.07, 1.08]
   const more350_2 = [1.01, 1.05, 1.09, 1.14, 1.18, 1.25, 1.32, 1.40]
@@ -24,7 +26,7 @@ export function get_K_Hbeta_from_table_6_3(
 
   if (materials.some(m => m === 'текстолит' || m === 'полиамид-капралон' || m === 'ДСП')) return 1
 
-  switch (gear_location) {
+  switch (detail_1.gear_location) {
     case 'Симметричное расположение шестерни относительно опор': {
       return HB > 350 ? more350_1[index] : less350_1[index]
     }
@@ -45,6 +47,7 @@ export function get_K_Hbeta_from_table_6_3(
       return HB > 350 ? more350_4[index] : less350_4[index]
     }
   }
+  detail_1.gear_location satisfies never
 }
 
 export function get_K_d_from_table_6_4(
@@ -78,13 +81,13 @@ export function find_sigma_HP_of_detail(data: {
   }
 }) {
   const { t_hours, n, detail } = data
-  const { sigma_ap_HP, N_H_0 } = get_data_from_table_6_5(detail)
+  const { sigma_ap_HP, N_H_0, HB } = get_data_from_table_6_5(detail)
 
   const { N_HE, N_Sum, K_HL } = find_K_HL({ t_hours, n, N_H_0, ...detail })
 
   const sigma_HP = sigma_ap_HP / K_HL
 
-  return { sigma_ap_HP, N_H_0, N_HE, N_Sum, K_HL, sigma_HP }
+  return { sigma_ap_HP, N_H_0, N_HE, N_Sum, K_HL, sigma_HP, HB }
 }
 
 export function find_K_HL(data:
@@ -149,9 +152,7 @@ export function execute(data: {
   shaft_rigidity: Shaft_rigidity,
   t_hours: number,
   n: number,
-  T_1: number,
   u: number
-  gear_location: Gear_location,
   detail_1: {
     detail_type: Detail_type,
     detail_purpose: Extract<Detail_purpose, 'Ведущее'>
@@ -160,6 +161,8 @@ export function execute(data: {
     heat_type: Heat_type,
     load_type: Load_type
     psi_bd: Psi_bd,
+    T: number,
+    gear_location: Gear_location,
   }
   detail_2: {
     detail_type: Detail_type,
@@ -170,7 +173,8 @@ export function execute(data: {
     load_type: Load_type
   }
 }) {
-  const { T_1, u, detail_1, detail_2 } = data
+  const { u, detail_1, detail_2 } = data
+  const T_1 = data.detail_1.T
   if (data.material_combination !== `${detail_1.material} - ${detail_2.material}`)
     throw new Error('Неправильно выбраны материалы деталей')
 
@@ -184,5 +188,5 @@ export function execute(data: {
   const sigma_HP = Math.min(detail_1_res.sigma_HP, detail_2_res.sigma_HP)
 
   const d_w1 = K_d * Math.pow((T_1 * K_Hbeta * (u + 1) / (u * detail_1.psi_bd * sigma_HP ** 2)), 1 / 3)
-  return { detail_1: detail_1_res, detail_2: detail_2_res, K_d, K_Hbeta, sigma_HP, d_w1 }
+  return { detail_1: { ...detail_1_res, d_w1 }, detail_2: detail_2_res, K_d, K_Hbeta, sigma_HP }
 }

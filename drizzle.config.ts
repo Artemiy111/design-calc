@@ -2,7 +2,7 @@ import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({
   dbCredentials: {
-    url: 'file:db.sqlite3',
+    url: 'file:.data/db.sqlite3',
   },
   dialect: 'turso',
   out: './server/db/migrations',

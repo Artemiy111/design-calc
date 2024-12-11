@@ -20,24 +20,25 @@
     "@nuxt/eslint": "0.7.2",
     "@nuxt/ui": "^3.0.0-alpha.9",
     "@types/katex": "^0.16.7",
-    "eslint-plugin-oxlint": "^0.14.0",
-    "katex": "^0.16.11",
-    "lucide-vue-next": "^0.462.0",
+    "drizzle-zod": "^0.6.0",
+    "eslint-plugin-oxlint": "^0.15.0",
+    "katex": "^0.16.15",
+    "lucide-vue-next": "^0.468.0",
     "nuxt": "^3.14.1592",
     "tailwindcss": "^4.0.0-beta.5",
     "vue": "latest",
     "vue-router": "latest",
-    "zod": "^3.23.8"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@libsql/client": "^0.14.0",
-    "drizzle-kit": "^0.28.1",
-    "drizzle-orm": "^0.36.4",
+    "drizzle-kit": "^0.30.0",
+    "drizzle-orm": "^0.38.0",
     "eslint": "^9.16.0",
-    "eslint-plugin-perfectionist": "^4.1.2",
+    "eslint-plugin-perfectionist": "^4.2.0",
     "eslint-plugin-tailwindcss": "^3.17.5",
     "eslint-plugin-vuejs-accessibility": "^2.4.1",
-    "oxlint": "^0.14.0",
+    "oxlint": "^0.15.0",
     "vite-plugin-eslint": "^1.8.1",
     "vite-plugin-oxlint": "^1.1.0"
   }
