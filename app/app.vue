@@ -340,9 +340,15 @@ const onSubmit = async (e: FormSubmitEvent<Schema>) => {
               variant="soft"
             />
           </UFormField>
+          <h3 class="text-2xl font-bold mt-8">Результат</h3>
           <UFormField hint="d_w1" label="Диаметр шестерни" name="results.detail_1.d_w1">
             <div class="mt-2 mb-2" v-html="dw_1_formula" />
-            <UInput v-model="state.results.detail_1.d_w1" class="w-full" disabled variant="soft" />
+            <UInput
+              v-model="state.results.detail_1.d_w1"
+              class="w-full dark:bg-green-950 bg-green-100"
+              disabled
+              variant="soft"
+            />
           </UFormField>
         </section>
         <section class="flex flex-col gap-4">
